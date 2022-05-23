@@ -18,9 +18,10 @@ data segment
     oprnd3msg db "Lutfen operand3  u hex formatinda ve sonunda H ile giriniz. (Maks 16 hane)$" 
     
     ; operand hatalari icin kullanilan mesajlar
-    oprnderr1msg db "Gecersiz bir operand girdiniz. Operand H karakteri ile sonlanmalidir.$"
-    oprnderr2msg db "Gecersiz bir operand girdiniz. Operand maksimum 16 hane olmalidir.$"
-    oprnderr3msg db "Gecersiz bir operand girdiniz. Operand hex formationda olmalidir.$"
+    oprnderr1msg db "Gecersiz bir operand girdiniz. Operand h karakteri ile sonlanmalidir.$"
+    oprnderr2msg db "Gecersiz bir operand girdiniz. Operand minimum bir hane olmalidir.$"
+    oprnderr3msg db "Gecersiz bir operand girdiniz. Operand maksimum 16 hane olmalidir.$"
+    oprnderr4msg db "Gecersiz bir operand girdiniz. Operand hex formationda olmalidir.$"
     
    
     ; secim degerinin saklandigi degisken
@@ -31,9 +32,8 @@ data segment
     first  dw   0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ; 0011 2233 4455 6677 8899 AABB CCDD EEFF
     second dw   0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ; FFEE DDCC BBAA 9988 7766 5544 3322 1100
     third  dw   0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh
-    currlw db   0
-    currhg db   0
-    count  dw   0
+    count  dw   16
+    tmpch  db   'X'
     
     ; first   dw 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ;0x1234567812345678
     ; second  dw 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ;0x9ABCDEF09ABCDEF0
@@ -45,8 +45,12 @@ data segment
     opte dw 'E' ; Option - Exit
     opth dw 'H' ; Optipn - Help
     opt2 dw '2' ; Option - 2
-    opt3 dw '3' ; Optipn - 3
-  
+    opt3 dw '3' ; Option - 3
+    
+    oprh db 'H' ; Operand Control - H
+    oprx db 'X' ; Operand Control - X
+    opre db 0Dh ; Operand Control - Enter
+   
 ends
 
 stack segment
@@ -56,147 +60,6 @@ ends
 code segment
     
 macros:
-;-----------------------------------------------
-;                     PRINT                    ;
-;-----------------------------------------------    
-; Verilen @message parametresini standart output
-; a yazdirir. 
-
-PRINT macro message
-    mov dx, offset message  ; Degiskenin offset degerini DX icine oku.
-    mov ah, 9               ; DS:DX icindeki degeri ekrana bas.
-    int 21h                 ; DS:DX icindeki degeri ekrana bas. (Devam)
-    
-endm
-
-
-;-----------------------------------------------
-;                     NEWLN                    ;
-;-----------------------------------------------    
-; Imleci bir alt satira ve alt satirin basina tasir.
-
-NEWLN macro
-    ; Standart outputa newline (\n) karakteri bas.
-    mov dl, 0Dh             ; 0Dh = 13: ASCII newline karakterini DL icine yaz.
-    mov ah, 2               ; DL icindeki degeri standart outputa yaz.
-    int 21h                 ; DL icindeki degeri standart outputa yaz. (Devam)
-    
-    ; Standart outputa carriage return (\r) karakteri bas.
-    mov dl, 0Ah             ; 0Ah = 10: ASCII carriage return karakterini DL icine yaz.
-    mov ah, 2               ; DL icindeki degeri standart outputa yaz.
-    int 21h                 ; DL icindeki degeri standart outputa yaz. (Devam)
-endm 
-
-;-----------------------------------------------
-;                    PRINTLN                   ;
-;-----------------------------------------------    
-; Verilen @message parametresini standart output
-; a yazdirir ve imleci yeni satirin basina tasir
- 
-PRINTLN macro message
-    PRINT message           ; PRINT macrosu ile degiskeni ekrana bastirir.
-    NEWLN                   ; Yeni satira gec ve imleci yeni satirin basina tasi.
-    
-endm
-
-;-----------------------------------------------
-;                    READCH                    ;
-;-----------------------------------------------    
-; Standart inputtan echo ile bir karakter okur 
-; ve bu karakteri verilen @output parametresi i-
-; cerisine yazar. 
- 
-READCH macro output
-    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
-    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
-    
-    xor ah, ah              ; AH registerinin icindeki degeri sifirla.
-    mov tempslct, ax        ; AX icindeki karakteri verilen @tempslct degiskenine yaz.
-    jmp read_ch                ; Kodun gecerli okuma bolumune atla.
-    
-    ; Eger bir sonraki karakter Enter olursa, bunu @output de-
-    ; giskeine yaz. Eger Enter'dan farkli bir karakter gelirse
-    ; @tempslct degiskenini gecersiz bir hale getir ve kullanici 
-    ; Enter'a basana dek input girmesine izin ver.
-    ; Sonuc her turlu gecersiz olacak.
-                                                              
-read_inv:
-    mov tempslct, 'X'
-read_ch:                            
-    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
-    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
-      
-    cmp al, 0Dh             ; Girilen tus Enter'mi diye kontrol et
-    je end_ch
-    jmp read_inv
-    
-end_ch:
-    mov ax, tempslct        ; @tempslct degiskendeki degeri AX registerine ata.
-    mov output, ax          ; AX registerindeki degeri @outputs degiskenine ata.
-        
-    NEWLN                   ; Yeni satira gec ve imleci yeni satirin basina tasi.
-endm
-
-
-;-----------------------------------------------
-;                   READOPR                    ;
-;-----------------------------------------------    
-; TODO. 
- 
-READOPR macro opr
-LOCAL read_opr, end_opr
-                                                                   
-read_opr: 
-    cmp [count], 16
-    je end_opr
-                                
-    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
-    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
-      
-    cmp al, 0Dh             ; Girilen tus Enter'mi diye kontrol et
-    je end_opr
-    
-    mov bx, [count]
-    mov byte [opr+bx], al
-    
-    
-    inc [count]
-    jmp read_opr
-end_opr:      
-        NEWLN                   ; Yeni satira gec ve imleci yeni satirin basina tasi.
-endm
-
-
-
-procedures: 
-
-
-;-----------------------------------------------
-;                   COMPARE                    ;
-;-----------------------------------------------    
-; TODO
-
-COMPARE proc
-    push bp                 ; BP'nin degerini yigina kaydet.
-    mov bp, sp              ; SP'nin degerini (yani yigin pozisyonunu) BP'ye kaydet.
-    
-    ; Normal sartlar altinda, yigindaki bir degiskene erismek icin
-    ; [sp + 2] referansini kullanmaliydik (2 byte offset) ancak
-    ; BP'yi yigina ekledigimiz icin referanslar bir birim kaydi.
-    
-    mov ax, [bp + 4]        ; Yigindan prosedurun ilk parametresini oku.
-    mov bx, [bp + 6]        ; Yigindan prosedurun ikinci parametresini oku.
-    sub ax, bx              ; Parametrelerin farkini hesapla.
-
-    mov [bp + 6], ax        ; Sonucu yigina ekle.   
-
-compare_end:                ;    
-    mov sp, bp              ; Yigin pozisyonunu geri yukle.
-    pop bp                  ; BP'nin degerini geri yukle.
-    ret 2     
-endp
-
-
 
 ;-----------------------------------------------
 ;                MULTIPLY_2_NUM                ;
@@ -830,6 +693,373 @@ MULTIPLY_3_NUM proc
     
     ret
 endp
+
+;-----------------------------------------------
+;                   CONVRTHEX                  ;
+;-----------------------------------------------    
+; TODO. 
+
+CONVRTHEX macro ascii, hex
+local end_conv, is_digit
+    mov ah, ascii
+    cmp ah, 039h
+    jbe is_digit
+      
+    sub ah, 037h
+
+is_digit:
+    sub ah, 030h
+end_conv:
+    mov hex, ah
+     
+endm
+
+;-----------------------------------------------
+;                   ISVALIDHEX                 ;
+;-----------------------------------------------    
+; TODO. 
+
+ISVALIDHEX macro ascii, rslt
+local end_conv, below_f, above_a, maybe_digit, below_9, above_0
+    mov ah, ascii
+    cmp ah, 046h
+    jbe below_f
+    
+    mov ah, 01h
+    jmp end_conv 
+
+below_f:
+    cmp ah, 041h
+    jb maybe_digit 
+   
+above_a:
+    mov ah, 0h
+    jmp end_conv
+
+maybe_digit:
+    cmp ah, 039h
+    jbe below_9
+    
+    mov ah, 01h
+    jmp end_conv
+
+below_9:
+    cmp ah, 030h
+    jae above_0
+    
+    mov ah, 01h
+    jmp end_conv
+
+above_0:
+    mov ah, 0h,
+
+    
+end_conv:
+    mov rslt, ah
+     
+endm
+
+;-----------------------------------------------
+;                   CLEARSC                    ;
+;-----------------------------------------------    
+; TODO.
+
+CLEARSC macro
+    mov ax, 3
+    int 10h
+    
+endm
+
+
+;-----------------------------------------------
+;                     PRINT                    ;
+;-----------------------------------------------    
+; Verilen @message parametresini standart output
+; a yazdirir. 
+
+PRINT macro message
+    mov dx, offset message  ; Degiskenin offset degerini DX icine oku.
+    mov ah, 9               ; DS:DX icindeki degeri ekrana bas.
+    int 21h                 ; DS:DX icindeki degeri ekrana bas. (Devam)
+    
+endm
+
+
+;-----------------------------------------------
+;                     NEWLN                    ;
+;-----------------------------------------------    
+; Imleci bir alt satira ve alt satirin basina tasir.
+
+NEWLN macro
+    ; Standart outputa newline (\n) karakteri bas.
+    mov dl, 0Dh             ; 0Dh = 13: ASCII newline karakterini DL icine yaz.
+    mov ah, 2               ; DL icindeki degeri standart outputa yaz.
+    int 21h                 ; DL icindeki degeri standart outputa yaz. (Devam)
+    
+    ; Standart outputa carriage return (\r) karakteri bas.
+    mov dl, 0Ah             ; 0Ah = 10: ASCII carriage return karakterini DL icine yaz.
+    mov ah, 2               ; DL icindeki degeri standart outputa yaz.
+    int 21h                 ; DL icindeki degeri standart outputa yaz. (Devam)
+endm 
+
+;-----------------------------------------------
+;                    PRINTLN                   ;
+;-----------------------------------------------    
+; Verilen @message parametresini standart output
+; a yazdirir ve imleci yeni satirin basina tasir
+ 
+PRINTLN macro message
+    PRINT message           ; PRINT macrosu ile degiskeni ekrana bastirir.
+    NEWLN                   ; Yeni satira gec ve imleci yeni satirin basina tasi.
+    
+endm
+
+;-----------------------------------------------
+;                    READCH                    ;
+;-----------------------------------------------    
+; Standart inputtan echo ile bir karakter okur 
+; ve bu karakteri verilen @output parametresi i-
+; cerisine yazar. 
+ 
+READCH macro output
+    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
+    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
+    
+    xor ah, ah              ; AH registerinin icindeki degeri sifirla.
+    mov tempslct, ax        ; AX icindeki karakteri verilen @tempslct degiskenine yaz.
+    jmp read_ch                ; Kodun gecerli okuma bolumune atla.
+    
+    ; Eger bir sonraki karakter Enter olursa, bunu @output de-
+    ; giskeine yaz. Eger Enter'dan farkli bir karakter gelirse
+    ; @tempslct degiskenini gecersiz bir hale getir ve kullanici 
+    ; Enter'a basana dek input girmesine izin ver.
+    ; Sonuc her turlu gecersiz olacak.
+                                                              
+read_inv:
+    mov tempslct, 'X'
+read_ch:                            
+    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
+    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
+      
+    cmp al, 0Dh             ; Girilen tus Enter'mi diye kontrol et
+    je end_ch
+    jmp read_inv
+    
+end_ch:
+    mov ax, tempslct        ; @tempslct degiskendeki degeri AX registerine ata.
+    mov output, ax          ; AX registerindeki degeri @outputs degiskenine ata.
+        
+    NEWLN                   ; Yeni satira gec ve imleci yeni satirin basina tasi.
+endm
+
+;-----------------------------------------------
+;                   RESETOPR                   ;
+;-----------------------------------------------    
+; TODO.
+
+RESETOPR macro opr
+LOCAL write_opr, end_opr,init
+
+init:
+    mov [count], 15
+write_opr:
+    cmp [count], 0
+    je end_opr
+    
+    mov bx, [count]
+    and [opr+bx-1], 0h
+                 
+    dec [count]             
+    jmp write_opr
+
+end_opr:
+
+endm
+
+;-----------------------------------------------
+;                   SHIFTOPR                   ;
+;-----------------------------------------------    
+; TODO.
+   
+SHIFTOPR macro opr, count
+LOCAL write_opr, end_opr,init
+
+init:
+    mov [count], 15
+write_opr:
+    cmp [count], 0
+    je end_opr
+    
+    mov bx, [count]
+    and [opr+bx-1], 0h
+                 
+    dec [count]             
+    jmp write_opr
+
+end_opr:
+
+endm
+
+;-----------------------------------------------
+;                   READOPR                    ;
+;-----------------------------------------------    
+; TODO. 
+ 
+READOPR macro opr
+LOCAL read_opr, end_opr, req_enter, req_h, init, end_err, hex_err, max_err, is_input_x, end_of_check
+       
+init:
+    RESETOPR opr
+    mov [count], 16
+    
+                                                                       
+read_opr:
+     
+    cmp [count], 0
+    je req_h
+    
+    ; read first higher 4 bits                             
+    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
+    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
+      
+    cmp al, oprh            ; Girilen tus h'mi diye kontrol et
+    je req_enter
+    
+    jmp is_input_x
+    
+end_of_check:
+    ISVALIDHEX al, dl
+    
+    cmp dl, 01h
+    je hex_err
+    
+    CONVRTHEX al, dl
+
+    
+    mov bx, [count]
+    and dl, 0Fh
+    mov byte [opr+bx-1], dl
+    shl byte [opr+bx-1], 4
+    
+    
+    ; read first lower 4 bits    
+    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
+    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
+  
+     
+    ISVALIDHEX al, dl
+    
+    cmp dl, 01h
+    je hex_err
+    
+    
+    CONVRTHEX al, dl
+    
+    mov bx, [count]
+    and dl, 0Fh
+    xor byte [opr+bx-1], dl
+    
+    
+    ; move next iteration
+    dec [count]
+    jmp read_opr
+
+
+req_h:
+    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
+    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
+    
+    cmp al, oprh            ; Girilen tus h'mi diye kontrol et
+    je req_enter     
+    
+    cmp al, opre             ; Girilen tus Enter'mi diye kontrol et
+    je end_err
+    
+    ISVALIDHEX al, dl
+    
+    cmp dl, 0h
+    je max_err
+    
+    jmp hex_err
+    
+
+
+req_enter:
+    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
+    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
+      
+    cmp al, opre             ; Girilen tus Enter'mi diye kontrol et
+    je end_opr
+
+    jmp hex_err                                                    
+    
+  
+
+end_err:
+    NEWLN
+    PRINTLN oprnderr1msg
+    jmp init    
+
+
+hex_err:
+    NEWLN
+    PRINTLN oprnderr4msg    ; gecersiz hex formati
+    jmp init
+    
+
+max_err:
+    NEWLN
+    PRINTLN oprnderr3msg    ; gecersiz hex formati
+    jmp init
+
+
+is_input_x:
+    cmp [count], 16
+    jne end_of_check
+    
+    cmp al, oprx
+    jne end_of_check    
+    
+    NEWLN
+    CLEARSC
+    jmp start
+    
+end_opr:      
+        NEWLN                   ; Yeni satira gec ve imleci yeni satirin basina tasi.
+endm
+
+
+
+procedures: 
+
+
+;-----------------------------------------------
+;                   COMPARE                    ;
+;-----------------------------------------------    
+; TODO
+
+COMPARE proc
+    push bp                 ; BP'nin degerini yigina kaydet.
+    mov bp, sp              ; SP'nin degerini (yani yigin pozisyonunu) BP'ye kaydet.
+    
+    ; Normal sartlar altinda, yigindaki bir degiskene erismek icin
+    ; [sp + 2] referansini kullanmaliydik (2 byte offset) ancak
+    ; BP'yi yigina ekledigimiz icin referanslar bir birim kaydi.
+    
+    mov ax, [bp + 4]        ; Yigindan prosedurun ilk parametresini oku.
+    mov bx, [bp + 6]        ; Yigindan prosedurun ikinci parametresini oku.
+    sub ax, bx              ; Parametrelerin farkini hesapla.
+
+    mov [bp + 6], ax        ; Sonucu yigina ekle.   
+
+compare_end:                ;    
+    mov sp, bp              ; Yigin pozisyonunu geri yukle.
+    pop bp                  ; BP'nin degerini geri yukle.
+    ret 2     
+endp
+
+
+
 
 
 
