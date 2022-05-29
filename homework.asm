@@ -1,8 +1,23 @@
 ; multi-segment executable file template.
-
-data segment
+; Nurettin Resul Tanyildizi - 030117056
+data segment   
+    
+    ; operands
+    first  dw   0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ; 0011 2233 4455 6677 8899 AABB CCDD EEFF
+    second dw   0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ; FFEE DDCC BBAA 9988 7766 5544 3322 1100
+    third  dw   0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  
+    
+    ; results
+    result_1 dw 16 dup(0)         ;0B 00 EA 4E 24 2D 20 80
+    result_2 dw 24 dup(0)  
+    
+    ; common-purpose variables
+    count  dw   16
+    tmpch  db   'X'
+    
     ; genel program mesajari
     progrmend db "Program basariyla sonlandirildi...$"
+    resultmsg db "Sonuc (hex formatinda): $"
     
     ; secim icin kullanilan mesajlar
     selectmsg db "Lutfen seciminizi yapiniz:$"
@@ -21,25 +36,15 @@ data segment
     oprnderr1msg db "Gecersiz bir operand girdiniz. Operand h karakteri ile sonlanmalidir.$"
     oprnderr2msg db "Gecersiz bir operand girdiniz. Operand minimum bir hane olmalidir.$"
     oprnderr3msg db "Gecersiz bir operand girdiniz. Operand maksimum 16 hane olmalidir.$"
-    oprnderr4msg db "Gecersiz bir operand girdiniz. Operand hex formationda olmalidir.$"
+    oprnderr4msg db "Gecersiz bir operand girdiniz. Operand hex formationda olmalidir.$"  
     
+   
    
     ; secim degerinin saklandigi degisken
     selected  dw 'X'
     tempslct  dw 'X'
     
-    ; operand 1
-    first  dw   0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ; 0011 2233 4455 6677 8899 AABB CCDD EEFF
-    second dw   0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ; FFEE DDCC BBAA 9988 7766 5544 3322 1100
-    third  dw   0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh
-    count  dw   16
-    tmpch  db   'X'
-    
-    ; first   dw 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ;0x1234567812345678
-    ; second  dw 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh, 0FFFFh  ;0x9ABCDEF09ABCDEF0
-    
-    result_1 dw 16 dup(0)         ;0B 00 EA 4E 24 2D 20 80
-    result_2 dw 24 dup(0)  
+   
     
     ; input karsilastirmak icin kullanilan sabitler
     opte dw 'E' ; Option - Exit
@@ -53,6 +58,12 @@ data segment
    
 ends
 
+extra segment
+    ; operands
+    shifter dw 8 dup(0)
+    
+    
+
 stack segment
     dw   128  dup(0)
 ends
@@ -64,7 +75,9 @@ macros:
 ;-----------------------------------------------
 ;                MULTIPLY_2_NUM                ;
 ;-----------------------------------------------    
-; TODO
+; @first ve @second operandlari icerisindeki 128
+; bitlik sayilari kelime kelime carpar ve sonucu
+; @result_1 operandi icerisine yazar.
 
 MULTIPLY_2_NUM proc
      ; A_0 * B_0 >> 0
@@ -281,6 +294,12 @@ endp
 
 
 
+;-----------------------------------------------
+;                MULTIPLY_3_NUM                ;
+;-----------------------------------------------    
+; @result_1 ve @third operandlari icerisindeki
+; 128 ve 256 bitlik sayilari kelime kelime carpar 
+; ve sonucu @result_2 operandi icerisine yazar.
 
 MULTIPLY_3_NUM proc
       ; A_0 * B_0 >> 0
@@ -694,10 +713,59 @@ MULTIPLY_3_NUM proc
     ret
 endp
 
+  
+
+
+
+;-----------------------------------------------
+;                   MULTIPLY2                  ;
+;-----------------------------------------------    
+; @off1 ve @off2 offsetleri ile @first ve @second 
+; operandlarini offsetler ve ilgili addreslerdeki
+; sayilari carparak @result_1 degiskeninin @offr 
+; ile offsetlenmis adresine yazar. 
+
+; TODO: satir aciklamalari
+
+MULTIPLY2 macro off1, off2, offr
+    mov ax, [first + off1]
+    mov bx, [second+ off2]
+    mul bx
+    add [result_1+offr]  , ax
+    adc [result_1+offr+2], dx
+    adc [result_1+offr+4], 0 
+endm
+
+
+;-----------------------------------------------
+;                   MULTIPLY3                  ;
+;-----------------------------------------------    
+; @off1 ve @off2 offsetleri ile @result_1 ve 
+; @third operandlarini offsetler ve ilgili addr-
+; eslerdeki sayilari carparak @result_2 degiske-
+; ninin @offr ile offsetlenmis adresine yazar. 
+
+; TODO: satir aciklamalari
+MULTIPLY3 macro off1, off2, offr
+    mov ax, [result_1 + off1]
+    mov bx, [third+ off2]
+    mul bx
+    add [result_2+offr]  , ax
+    adc [result_2+offr+2], dx
+    adc [result_2+offr+4], 0 
+endm
+
+
+
 ;-----------------------------------------------
 ;                   CONVRTHEX                  ;
 ;-----------------------------------------------    
-; TODO. 
+; Girilen ASCII karakteri hexadecimal karsiligi-
+; na donusturur. Eger karakter bir rakam ise 030h
+; bir harf ise 039h cikarir. 
+
+
+; TODO: satir aciklamalari
 
 CONVRTHEX macro ascii, hex
 local end_conv, is_digit
@@ -717,7 +785,13 @@ endm
 ;-----------------------------------------------
 ;                   ISVALIDHEX                 ;
 ;-----------------------------------------------    
-; TODO. 
+; Girilen karakter gecerli bir hexadecimal karak-
+; ter mi diye kontrol eder.
+; Yalnizca uppercase harfler kabul edilmektedir.
+
+; (0123456789ABCDEF)
+
+; TODO: satir aciklamalari 
 
 ISVALIDHEX macro ascii, rslt
 local end_conv, below_f, above_a, maybe_digit, below_9, above_0
@@ -762,12 +836,11 @@ endm
 ;-----------------------------------------------
 ;                   CLEARSC                    ;
 ;-----------------------------------------------    
-; TODO.
+; Konsol ekranini temizler.
 
 CLEARSC macro
-    mov ax, 3
-    int 10h
-    
+    mov ax, 3               ; Bir sayfa kaydirir ve imleci basa alir. 
+    int 10h                 ; Bir sayfa kaydirir ve imleci basa alir. (Devam)
 endm
 
 
@@ -814,6 +887,84 @@ PRINTLN macro message
     
 endm
 
+
+;-----------------------------------------------
+;                   CONVASCII                  ;
+;-----------------------------------------------    
+; Hexadecimal bir degeri ASCII karsiligina donus-
+; turmek icin gerekli toplama islemini yapar. Eg-
+; er verilen deger bir rakam ise 030h, bir harf  
+; ise 037h ekler.
+
+CONVASCII macro
+local is_letter, end_conv
+    cmp dx, 9               ; DX registeri icindeki degeri 9 ile karsilastir.
+    ja is_letter            ; Eger deger 9'dan buyukse bir harftir. (ABCDEF)
+                            ; Bu durumda harf bolumune dallan.
+    
+    add dx, 030h            ; DX registerina 030h ekleyerek rakamin ASCII kar-
+                            ; siligini elde et.
+    jmp end_conv
+
+is_letter:
+    add dx, 037h            ; DX registerina 037h ekleyerek harfin ASCII  kar-
+                            ; siligini elde et.
+end_conv:
+endm
+
+;-----------------------------------------------
+;                   PRINTSPC                   ;
+;-----------------------------------------------    
+; Standart output'a SPACE karakteri basar.
+ 
+PRINTSPC macro
+    ; Standart outputa carriage return ( ) karakteri bas.
+    mov dx, 20h             ; 020h = 32: ASCII bosluk karakterini DL icine yaz.
+    mov ah, 2h              ; DX icindeki degeri standart outputa yaz.
+    int 21h                 ; DX icindeki degeri standart outputa yaz. (Devam)
+endm
+
+;-----------------------------------------------
+;                    PRINTCH                   ;
+;-----------------------------------------------    
+; DX Registerinda bulunan 16 bit sayiyi, dorder
+; byte olarak ASCII'ye donusturur ve ekrana basar.
+ 
+PRINTCH macro
+    mov bx, dx              ; DX registerindaki orijinal degeri korumak icin BX registerina yaz.
+    
+    shr dx, 12              ; Sayinin en yuksek anlamli 4 bitini almak icin kaydirma ve maskeleme yap.
+    and dx, 000Fh           ; Sayinin en yuksek anlamli 4 bitini almak icin kaydirma ve maskeleme yap.
+    CONVASCII               ; En yuksek anlamli 4 biti ASCII karsiligina donustur.
+    mov ah, 2h              ; DX icindeki degeri standart outputa yaz.
+    int 21h                 ; DX icindeki degeri standart outputa yaz. (Devam)
+    
+    mov dx, bx              ; BX registerindaki sayinin orijinal halini DX registerina yaz.
+                            
+    shr dx, 8               ; Sayinin ikinci en yuksek anlamli 4 bitini almak icin kaydirma ve maskeleme yap.
+    and dx, 000Fh           ; Sayinin ikinci en yuksek anlamli 4 bitini almak icin kaydirma ve maskeleme yap.
+    CONVASCII               ; Ikinci en yuksek anlamli 4 biti ASCII karsiligina donustur.
+    mov ah, 2h              ; DX icindeki degeri standart outputa yaz.
+    int 21h                 ; DX icindeki degeri standart outputa yaz. (Devam)
+    
+    mov dx, bx              ; BX registerindaki sayinin orijinal halini DX registerina yaz.
+    
+    shr dx, 4               ; Sayinin ucuncu en yuksek anlamli 4 bitini almak icin kaydirma ve maskeleme yap.
+    and dx, 000Fh           ; Sayinin ucuncu en yuksek anlamli 4 bitini almak icin kaydirma ve maskeleme yap.
+    CONVASCII               ; Ucuncu en yuksek anlamli 4 biti ASCII karsiligina donustur.
+    mov ah, 2h              ; DX icindeki degeri standart outputa yaz.
+    int 21h                 ; DX icindeki degeri standart outputa yaz. (Devam)
+       
+    mov dx, bx              ; BX registerindaki sayinin orijinal halini DX registerina yaz.
+    
+    and dx, 000Fh           ; Sayinin en dusuk anlamli 4 bitini almak icin maskeleme yap.
+    CONVASCII               ; En dusuk anlamli 4 biti ASCII karsiligina donustur.
+    mov ah, 2h              ; DX icindeki degeri standart outputa yaz.
+    int 21h                 ; DX icindeki degeri standart outputa yaz. (Devam)
+endm
+
+
+
 ;-----------------------------------------------
 ;                    READCH                    ;
 ;-----------------------------------------------    
@@ -853,24 +1004,94 @@ end_ch:
 endm
 
 ;-----------------------------------------------
+;                   COMPARE                    ;
+;-----------------------------------------------    
+; Yigin araciligiyla verilen iki degiskenin far-
+; kini hesaplar ve sonucu yeniden yigin aracili-
+; giyla dondurur. 
+
+COMPARE proc
+    push bp                 ; BP'nin degerini yigina kaydet.
+    mov bp, sp              ; SP'nin degerini (yani yigin pozisyonunu) BP'ye kaydet.
+    
+    ; Normal sartlar altinda, yigindaki bir degiskene erismek icin
+    ; [sp + 2] referansini kullanmaliydik (2 byte offset) ancak
+    ; BP'yi yigina ekledigimiz icin referanslar bir birim kaydi.
+    
+    mov ax, [bp + 4]        ; Yigindan prosedurun ilk parametresini oku.
+    mov bx, [bp + 6]        ; Yigindan prosedurun ikinci parametresini oku.
+    sub ax, bx              ; Parametrelerin farkini hesapla.
+
+    mov [bp + 6], ax        ; Sonucu yigina ekle. Burada dogrudan push islemi 
+                            ; yapmak return esnasinda bilgi kaybina yol acacagindan 
+                            ; ilk yiginin bilinen guvenli kismina tasima yapilir.   
+
+compare_end:                ;    
+    mov sp, bp              ; Yigin pozisyonunu geri yukle.
+    pop bp                  ; BP'nin degerini geri yukle.
+    ret 2                   ; Yigin isaretcisini iki birim azalt.
+endp
+
+
+
+
+;-----------------------------------------------
+;                    PRINTOPR                  ;
+;-----------------------------------------------    
+; Verilen @opr operandinin adresini @cnt offseti 
+; ile offsetler ve yuksek adresten dusuk adrese 
+; dogru kelime kelime ekrana yazdirir.   
+
+PRINTOPR macro opr, cnt
+LOCAL read_loop, end_opr
+    mov [count], cnt        ; Verilen offset degerini @count degiskenine yaz.
+read_loop:
+    cmp [count], 0          ; @count degiskenini 0 ile karsilastir.
+    je end_opr              ; Eger sifirsa islemi sonlandirma kismina dallan.
+    
+    ; Eger sifir degilse, yani dongu halen devam ediyorsa
+    mov bx, [count]         ; @count degiskenini BX registerina yaz. 
+    mov dx, [opr+bx-2]      ; Verilen operandin @count degiskeninin o anki degeri
+                            ; ile offsetlenmis halini DX registerina yaz.  
+    
+    PRINTCH                 ; DX registeri icerisindeki karakterleri ekrana yazdir.
+    PRINTSPC                ; Ekrana bosluk karakteri yazdir.
+    
+    ; @count degiskeni ikiser ikiser azaltiliyor cunku
+    ; kelime kelime (16 bitlik) okuma yapmak istiyoruz.
+    
+    dec [count]             ; @count degiskenini azalt.
+    dec [count]             ; @count degiskenini azalt.
+    jmp read_loop           ; Donguye devam et.
+end_opr:    
+    NEWLN                   ; Yeni satira gec ve imleci yeni satirin basina tasi.
+endm
+
+
+;-----------------------------------------------
 ;                   RESETOPR                   ;
 ;-----------------------------------------------    
-; TODO.
+; Verilen @opr operandinin sifirlar.
+; Bu macro offset degerini parametre olarak al-
+; madigindan yalnizca 128 bit operandlar icin
+; kullanilabilir.
 
 RESETOPR macro opr
 LOCAL write_opr, end_opr,init
 
 init:
-    mov [count], 15
+    mov [count], 15         ; 128 bit operand icin 15 offseti ile baslat
 write_opr:
-    cmp [count], 0
-    je end_opr
+    cmp [count], 0          ; @count degiskenini 0 ile karsilastir.
+    je end_opr              ; Eger sifirsa islemi sonlandirma kismina dallan.
     
-    mov bx, [count]
-    and [opr+bx-1], 0h
+    ; Eger sifir degilse, yani dongu halen devam ediyorsa
+    mov bx, [count]         ; @count degiskenini BX registerina yaz. 
+    and [opr+bx-1], 0h      ; Verilen operandin @count degiskeninin o anki degeri
+                            ; ile offsetlenmis halini sifir ile maskele.  
                  
-    dec [count]             
-    jmp write_opr
+    dec [count]             ; @count degiskenini azalt.
+    jmp write_opr           ; Donguye devam et.
 
 end_opr:
 
@@ -879,34 +1100,81 @@ endm
 ;-----------------------------------------------
 ;                   SHIFTOPR                   ;
 ;-----------------------------------------------    
-; TODO.
+; Verilen @src operandini 010h - @cnt kadar saga
+; kaydirir. Boylece verilen operandin bitlerinin
+; pozisyonu dogrulanmis olur.
    
-SHIFTOPR macro opr, count
-LOCAL write_opr, end_opr,init
-
-init:
-    mov [count], 15
-write_opr:
-    cmp [count], 0
-    je end_opr
+SHIFTOPR macro src, cnt
+LOCAL write_opr, end_opr
+                            
+                            
+    cld                     ; MOVSB komutunda kullanilan D bayragini 0'a esitler.
     
-    mov bx, [count]
-    and [opr+bx-1], 0h
-                 
-    dec [count]             
-    jmp write_opr
-
-end_opr:
+    ; Cunku MOVSB komutu, dokumana gore asagidaki sekilde calismaktadir.
+    ; ES:[DI] = DS:[SI]
+    ;   if DF = 0 then
+    ;       SI = SI + 1
+    ;       DI = DI + 1
+    ;   else
+    ;       SI = SI - 1
+    ;       DI = DI - 1
+  
+    lea si, src             ; @src'nin efektif adresini tasinacak veri olarak SI registerina aktarir.
+    add si, [cnt]           ; Bu adresi @cnt kadar offsetler.
+    lea di, shifter         ; @shifter degiskenini hedef olarak DI registerina aktarir. 
+                            
+    mov cx, 010h            ; Tasinacak bytelarin sayisini belirler CX = [010 - @cnt] 
+    sub cx, [cnt]           ; Tasinacak bytelarin sayisini belirler CX = [010 - @cnt] 
+    rep movsb               ; Tasima islemini baslatir.
+    
+    
+    RESETOPR src            ; @src operandini sifirlar. Cunku dogrulanarak @shifter operandina
+                            ; tasinan @src operandi, yeniden @src yazilacaktir.
+    
+    ; Ekstra segmentten Data segmente veri tasimak icin, segment registerlarinin 
+    ; degistirilmesi gerekmektedir. Bu sebeple @data segmenti ES'ye, @ekstra segment
+    ; DS'ye yazilarak swap islemi gerceklestirilir. 
+    mov ax, data            ; Data segmentinin adresini ES registerina aktarmak icin AX icine yazar.  
+    mov es, ax              ; Bu adresi ES segment registeri icinde saklar. (Dogrudan aktarim gecersiz.)
+    
+    mov ax, extra           ; Ekstra segmentinin adresini DS registerina aktarmak icin AX icine yazar.
+    mov ds, ax              ; Bu adresi DS segment registeri icinde saklar. (Dogrudan aktarim gecersiz.)
+    
+    lea si, shifter         ; @shifter'in efektif adresini tasinacak veri olarak SI registerina aktarir.
+    lea di, src             ; @src'in efektif adresini hedef olarak DI registerina aktarir.
+    
+    mov cx, 010h            ; Tasinacak bytelarin sayisini belirler CX = [010 - @cnt] 
+    sub cx, [cnt]           ; Tasinacak bytelarin sayisini belirler CX = [010 - @cnt] 
+    rep movsb               ; Tasima islemini baslatir.
+    
+       
+    RESETOPR shifter        ; @shifter operandini daha sonraki kaydirmalar icin sifirlar.
+    
+    ; Segment registerlarinin icerigini eski hallerine geri dondurur.
+    mov ax, extra           ; Ekstra segmentinin adresini ES registerina aktarmak icin AX icine yazar.
+    mov es, ax              ; Bu adresi ES segment registeri icinde saklar. (Dogrudan aktarim gecersiz.) 
+    
+    mov ax, data            ; Data segmentinin adresini DS registerina aktarmak icin AX icine yazar.
+    mov ds, ax              ; Bu adresi DS segment registeri icinde saklar. (Dogrudan aktarim gecersiz.)
 
 endm
 
 ;-----------------------------------------------
 ;                   READOPR                    ;
 ;-----------------------------------------------    
-; TODO. 
+; @opr ile verilen adrese, 128 bitlik bir operand
+; okur. Okunan bu operand hexadecimal formatinda
+; olmalidir ve minimum 1 maksimum 16 haneye sahip
+; olmalidir. Ayrica sayi 'H' sembolu ile sonlan-
+; malidir. Kullanici Enter tusuna bastiginda yazma
+; islmei sonlanmalidir. Kullanici X tusuna basarsa
+; menuye donulmelidir. 
+
+; Bu macro, gerekli tum kontrolleri saglar ve 
+; 128 bitlik bir sayiyi byte byte okuma islemi yapar. 
  
 READOPR macro opr
-LOCAL read_opr, end_opr, req_enter, req_h, init, end_err, hex_err, max_err, is_input_x, end_of_check
+LOCAL read_opr, end_opr, req_enter_first, req_enter_second, req_h, init, end_err, hex_err, max_err, is_input_x, end_of_check
        
 init:
     RESETOPR opr
@@ -922,15 +1190,14 @@ read_opr:
     mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
     int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
       
-    cmp al, oprh            ; Girilen tus h'mi diye kontrol et
-    je req_enter
+    cmp al, oprh            ; Girilen karakter h'mi diye kontrol eder
+    je req_enter_first      ; Enter gerektiren kisma dallanir
     
-    jmp is_input_x
+    jmp is_input_x          ; Girilen karakter x'mi diye kontrol eden kisma dallanir
     
 end_of_check:
-    ISVALIDHEX al, dl
-    
-    cmp dl, 01h
+    ISVALIDHEX al, dl       ; Gecerli bir hexadecimal mi diye kontrol et.
+    cmp dl, 01h             ; Gecerli bir hexadecimal mi diye kontrol et.
     je hex_err
     
     CONVRTHEX al, dl
@@ -939,19 +1206,23 @@ end_of_check:
     mov bx, [count]
     and dl, 0Fh
     mov byte [opr+bx-1], dl
-    shl byte [opr+bx-1], 4
+    
     
     
     ; read first lower 4 bits    
     mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
     int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
-  
+    
+    cmp al, oprh            ; Girilen tus h'mi diye kontrol et
+    je req_enter_second
      
+    
     ISVALIDHEX al, dl
     
     cmp dl, 01h
     je hex_err
     
+    shl byte [opr+bx-1], 4
     
     CONVRTHEX al, dl
     
@@ -970,7 +1241,7 @@ req_h:
     int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
     
     cmp al, oprh            ; Girilen tus h'mi diye kontrol et
-    je req_enter     
+    je req_enter_first     
     
     cmp al, opre             ; Girilen tus Enter'mi diye kontrol et
     je end_err
@@ -984,7 +1255,7 @@ req_h:
     
 
 
-req_enter:
+req_enter_first:
     mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
     int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
       
@@ -993,7 +1264,18 @@ req_enter:
 
     jmp hex_err                                                    
     
-  
+
+
+req_enter_second:
+    mov ah, 1               ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz.
+    int 21h                 ; Standart inputtan echo ile bir karakter okur ve sonucu AL icine yaz. (Devam)
+      
+    cmp al, opre             ; Girilen tus Enter'mi diye kontrol et
+    jne hex_err 
+
+    dec [count]
+    jmp end_opr                                                     
+      
 
 end_err:
     NEWLN
@@ -1024,7 +1306,8 @@ is_input_x:
     CLEARSC
     jmp start
     
-end_opr:      
+end_opr:
+        SHIFTOPR opr, [count]      
         NEWLN                   ; Yeni satira gec ve imleci yeni satirin basina tasi.
 endm
 
@@ -1033,81 +1316,26 @@ endm
 procedures: 
 
 
-;-----------------------------------------------
-;                   COMPARE                    ;
-;-----------------------------------------------    
-; TODO
-
-COMPARE proc
-    push bp                 ; BP'nin degerini yigina kaydet.
-    mov bp, sp              ; SP'nin degerini (yani yigin pozisyonunu) BP'ye kaydet.
-    
-    ; Normal sartlar altinda, yigindaki bir degiskene erismek icin
-    ; [sp + 2] referansini kullanmaliydik (2 byte offset) ancak
-    ; BP'yi yigina ekledigimiz icin referanslar bir birim kaydi.
-    
-    mov ax, [bp + 4]        ; Yigindan prosedurun ilk parametresini oku.
-    mov bx, [bp + 6]        ; Yigindan prosedurun ikinci parametresini oku.
-    sub ax, bx              ; Parametrelerin farkini hesapla.
-
-    mov [bp + 6], ax        ; Sonucu yigina ekle.   
-
-compare_end:                ;    
-    mov sp, bp              ; Yigin pozisyonunu geri yukle.
-    pop bp                  ; BP'nin degerini geri yukle.
-    ret 2     
-endp
-
-
-
-
-
-
-;-----------------------------------------------
-;                   MULTIPLY2                  ;
-;-----------------------------------------------    
-; Standart inputtan echo ile bir karakter okur 
-; ve bu karakteri verilen @output parametresi i-
-; cerisine yazar. 
-
-MULTIPLY2 macro off1, off2, offr
-    mov ax, [first + off1]
-    mov bx, [second+ off2]
-    mul bx
-    add [result_1+offr]  , ax
-    adc [result_1+offr+2], dx
-    adc [result_1+offr+4], 0 
-endm
-
-
-;-----------------------------------------------
-;                   MULTIPLY3                  ;
-;-----------------------------------------------    
-; Standart inputtan echo ile bir karakter okur 
-; ve bu karakteri verilen @output parametresi i-
-; cerisine yazar. 
-
-MULTIPLY3 macro off1, off2, offr
-    mov ax, [result_1 + off1]
-    mov bx, [third+ off2]
-    mul bx
-    add [result_2+offr]  , ax
-    adc [result_2+offr+2], dx
-    adc [result_2+offr+4], 0 
-endm
-
-
 
     
 ;-----------------------------------------------
 ;                    PROGRAM                   ;
 ;-----------------------------------------------    
-; TODO: Program aciklamasi
+; Bu program 8086 mimarisinde 128 bitlik 2 veya 3
+; farkli sayinin carpimini yapmaktadir.  Kac adet 
+; sayinin carpilacagi ve sayilarin degerleri kul-
+; lanici tarafindan girilmektedir. Sayilar hex ve
+; sonuc hex formatindadir.   Program kullanicinin  
+; girdigi yanlis sayi  formatlarina karsi detayli
+; uyarilarda bulunur. 
  
 start:
     ; Segment registerlarini ayarla  
     mov ax, data           ; Data segmentinin adresini DS registerina aktarmak icin AX icine yaz.
     mov ds, ax             ; Bu adresi DS segment registeri icinde sakla. (Dogrudan aktarim gecersiz.)
+    
+    mov ax, extra          ; Ekstra segmentinin adresini ES registerina aktarmak icin AX icine yaz.
+    mov es, ax             ; Bu adresi ES segment registeri icinde sakla. (Dogrudan aktarim gecersiz.)
             
     ; Kullanicinin uygulamada yapabileceklerini listele ve bir secim yapmasini bekle
     PRINTLN selectmsg      ; @selectmsg string degiskenini ekrana yazdir. 
@@ -1167,50 +1395,63 @@ option_invalid:
     jmp get_selection      ; Yeniden input almak icin, get_selection programi 
                            ; etikenine yonlendir.
                            
+    ; Bu secenekte kullanicidan hex formatinda iki adet 128 bit sayi alinir.
+    ; Bu iki sayi carpilir ve sonuc yine hex formatinda kullaniciya sunulur.
+    ; Tum islemler basarili ise, program basariyla sonlandirilir.                         
 option_2:
-    PRINTLN oprnd1msg
+    PRINTLN oprnd1msg      ; @oprnd1msg string degiskenini ekrana yazdirir.
+                           ; ve kullanicidan ilk operandi ister.
+    READOPR first          ; Ilk operandi byte-byte okuyarak bellegin @first adresli bolumune yazar.
     
-    READOPR first
-
-    PRINTLN oprnd2msg   
+    PRINTLN oprnd2msg      ; @oprnd2msg string degiskenini ekrana yazdirir.
+                           ; ve kullanicidan ikinci operandi ister. 
+    READOPR second         ; Ikinci operandi byte-byte okuyarak bellegin @second adresli bolumune yazar.
     
-    READOPR second
-    ; TODO get the second operand
+    CALL MULTIPLY_2_NUM    ; Iki operand uzerinde carpma islemi gerceklestirir. Carpma isleminin 
+                           ; sonucu bellegin @result_1 bolumune yazilir.
     
-    ; TODO calculate result
-    ; TODO print result
-     
+    PRINTLN resultmsg      ; @resultmsg string degiskenini ekrana yazdirir.
+    PRINTOPR result_1, 32  ; Bellegin @result_1 bolumunde bulunan sonucu ekrana yazdirir.
+    jmp option_e           ; Programi sonlandirmak icin dallanir.
     
-    CALL MULTIPLY_2_NUM
-    
-    jmp option_e
-
+    ; Bu secenekte kullanicidan hex formatinda iki adet 128 bit sayi alinir.
+    ; Bu iki sayi carpilir ve sonuc yine hex formatinda kullaniciya sunulur.
+    ; Tum islemler basarili ise, program basariyla sonlandirilir.  
 option_3:
-    PRINTLN oprnd1msg
-    ; TODO get the first operand
-    PRINTLN oprnd2msg
-    ; TODO get the second operand
-    PRINTLN oprnd3msg
-    ; TODO get the second operand
+    PRINTLN oprnd1msg      ; @oprnd1msg string degiskenini ekrana yazdirir.
+                           ; ve kullanicidan ilk operandi ister.
+    READOPR first          ; Ilk operandi byte-byte okuyarak bellegin @first adresli bolumune yazar.
     
-    ; TODO calculate result
-    ; TODO print result
+    PRINTLN oprnd2msg      ; @oprnd2msg string degiskenini ekrana yazdirir.
+                           ; ve kullanicidan ikinci operandi ister. 
+    READOPR second         ; Ikinci operandi byte-byte okuyarak bellegin @second adresli bolumune yazar.
     
-    CALL MULTIPLY_2_NUM
-    CALL MULTIPLY_3_NUM
+    PRINTLN oprnd3msg      ; @oprnd3msg string degiskenini ekrana yazdirir.
+                           ; ve kullanicidan ucuncu operandi ister. 
+    READOPR third          ; Ucuncu operandi byte-byte okuyarak bellegin @third adresli bolumune yazar.
     
-    jmp option_e
+    
+    CALL MULTIPLY_2_NUM    ; @first ve @second operandlari uzerinde carpma islemi gerceklestirir. 
+                           ; Carpma isleminin sonucu bellegin @result_1 bolumune yazilir. 
+    
+    CALL MULTIPLY_3_NUM    ; @result_1 ve @third operandlari uzerinde carpma islemi gerceklestirir. 
+                           ; Carpma isleminin sonucu bellegin @result_2 bolumune yazilir. 
+    
+    
+    PRINTLN resultmsg      ; @resultmsg string degiskenini ekrana yazdirir.
+    PRINTOPR result_2, 48  ; Bellegin @result_2 bolumunde bulunan sonucu ekrana yazdirir.
+    jmp option_e           ; Programi sonlandirmak icin dallanir.
 
 option_h:
 
 
 option_e:
-    PRINTLN progrmend
-    mov ax, 4c00h ; exit to operating system.
-    int 21h    
+    PRINTLN progrmend      ; @progrmend string degiskenini ekrana yazdirir.
+    mov ax, 4c00h          ; Programi basariyla sonlandirir.
+    int 21h                ; Programi basariyla sonlandirir. (devam)
 ends
    
-end start ; set entry point and stop the assembler.
+end start                  ; Entry pointi ayarlar ve assembleri durdurur.
 
 
                     
